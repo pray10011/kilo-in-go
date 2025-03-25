@@ -19,6 +19,10 @@ func main() {
 				break
 			}
 		}
+		if c[0] == 'q' {
+			fmt.Println("quit")
+			break
+		}
 		fmt.Printf("read %d byte: [%q]\n", n, c[0])
 	}
 	fmt.Println("done, byebye")
