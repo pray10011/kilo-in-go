@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"syscall"
+	"unicode"
 	"unsafe"
 
 	"io"
@@ -47,7 +48,7 @@ func main() {
 	defer disableRawMode()
 	var c []byte = make([]byte, 1)
 	for {
-		n, err := os.Stdin.Read(c)
+		_, err := os.Stdin.Read(c)
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println("EOF")
@@ -58,10 +59,14 @@ func main() {
 			}
 		}
 		if c[0] == 'q' {
-			fmt.Println("quit")
 			break
 		}
-		fmt.Printf("read %d byte: [%q]\n", n, c[0])
+
+		// 判断是否为控制字符
+		if unicode.IsControl(rune(c[0])) {
+			fmt.Printf("%d\n", c[0])
+		} else {
+			fmt.Printf("%d (%q)\n", c[0], c[0])
+		}
 	}
-	fmt.Println("done, byebye")
 }
