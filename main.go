@@ -23,7 +23,7 @@ func enableRawMode() {
 
 	newTermios = oldTermios
 
-	newTermios.Lflag &= ^(uint32(syscall.ECHO))
+	newTermios.Lflag &= ^(uint32(syscall.ECHO | syscall.ICANON))
 
 	// 写入新的终端属性
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
