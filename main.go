@@ -25,6 +25,7 @@ func enableRawMode() {
 
 	newTermios.Lflag &^= uint32(syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG)
 	newTermios.Iflag &^= uint32(syscall.IXON | syscall.ICRNL)
+	newTermios.Oflag &^= uint32(syscall.OPOST)
 
 	// 写入新的终端属性
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
@@ -55,9 +56,9 @@ func main() {
 
 		// 判断是否为控制字符
 		if unicode.IsControl(rune(buf[0])) {
-			fmt.Printf("%d\n", buf[0])
+			fmt.Printf("%d\r\n", buf[0])
 		} else {
-			fmt.Printf("%d (%q)\n", buf[0], buf[0])
+			fmt.Printf("%d (%q)\r\n", buf[0], buf[0])
 		}
 	}
 }
