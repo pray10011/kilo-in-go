@@ -6,7 +6,6 @@ import (
 	"unicode"
 	"unsafe"
 
-	"io"
 	"os"
 )
 
@@ -24,7 +23,8 @@ func enableRawMode() {
 
 	newTermios = oldTermios
 
-	newTermios.Lflag &= ^(uint32(syscall.ECHO | syscall.ICANON))
+	newTermios.Lflag &^= uint32(syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG)
+	newTermios.Iflag &^= uint32(syscall.IXON )
 
 	// 写入新的终端属性
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
@@ -46,27 +46,18 @@ func disableRawMode() {
 func main() {
 	enableRawMode()
 	defer disableRawMode()
-	var c []byte = make([]byte, 1)
 	for {
-		_, err := os.Stdin.Read(c)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Println("EOF")
-				break
-			} else {
-				fmt.Println("Error:", err)
-				break
-			}
-		}
-		if c[0] == 'q' {
+		var buf [1]byte
+		n, _, _ := syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
+		if n != 1 || buf[0] == 'q' {
 			break
 		}
 
 		// 判断是否为控制字符
-		if unicode.IsControl(rune(c[0])) {
-			fmt.Printf("%d\n", c[0])
+		if unicode.IsControl(rune(buf[0])) {
+			fmt.Printf("%d\n", buf[0])
 		} else {
-			fmt.Printf("%d (%q)\n", c[0], c[0])
+			fmt.Printf("%d (%q)\n", buf[0], buf[0])
 		}
 	}
 }
