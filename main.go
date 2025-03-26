@@ -3,18 +3,19 @@ package main
 import (
 	"fmt"
 	"syscall"
-	"unicode"
 	"unsafe"
 
 	"os"
 )
 
-/* define */
+/*** define ***/
 var oldTermios syscall.Termios
 // 0x1f = 00011111，即清除5、6位，变为控制字符
 func CTRL_KEY(b byte) byte {
 	return b & 0x1f
 }
+
+/*** terminal ***/
 
 func die(s string) {
 	fmt.Fprintf(os.Stderr, "%s\r\n",s)
@@ -54,30 +55,57 @@ func disableRawMode() {
 	}
 }
 
-/* init */
-func main() {
-	enableRawMode()
-	defer disableRawMode()
-	
+func editorReadKey() byte{
 	for {
-		// _, err := os.Stdin.Read(buf)
-		// if err != nil {
-		// 	die("read error")
-		// }
 		var buf = make([]byte, 1)
 		_,_,errno:=syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
 		if errno != 0 {
 			die("read error")
 		}
-		if buf[0] == CTRL_KEY('q') {
-			break
-		}
+		return buf[0]
+	}
+}
 
-		// 判断是否为控制字符
-		if unicode.IsControl(rune(buf[0])) {
-			fmt.Printf("%d\r\n", buf[0])
-		} else {
-			fmt.Printf("%d (%q)\r\n", buf[0], buf[0])
-		}
+/*** input ***/
+func editorProcessKeyPress() {
+	var c = editorReadKey()
+	switch(c) {
+		case CTRL_KEY('q'):
+			disableRawMode()
+			// os.Exit(0)之后main函数的defer不执行，所以在这里显式调用
+			os.Exit(0)
+			break
+	}
+}
+
+/*** init ***/
+func main() {
+	enableRawMode()
+	defer disableRawMode()
+	
+	// for {
+	// 	// _, err := os.Stdin.Read(buf)
+	// 	// if err != nil {
+	// 	// 	die("read error")
+	// 	// }
+	// 	var buf = make([]byte, 1)
+	// 	_,_,errno:=syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
+	// 	if errno != 0 {
+	// 		die("read error")
+	// 	}
+	// 	if buf[0] == CTRL_KEY('q') {
+	// 		break
+	// 	}
+
+	// 	// 判断是否为控制字符
+	// 	if unicode.IsControl(rune(buf[0])) {
+	// 		fmt.Printf("%d\r\n", buf[0])
+	// 	} else {
+	// 		fmt.Printf("%d (%q)\r\n", buf[0], buf[0])
+	// 	}
+	// }
+
+	for {
+		editorProcessKeyPress()
 	}
 }
