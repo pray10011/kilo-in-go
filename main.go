@@ -24,9 +24,8 @@ func die(s string) {
 
 func enableRawMode() {
 	// 获取当前终端属性
-	fd := int(os.Stdin.Fd())
 	var newTermios syscall.Termios
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&oldTermios)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&oldTermios)))
 	if errno != 0 {
 		die("tcgetattr error")
 	}
@@ -41,15 +40,14 @@ func enableRawMode() {
 	newTermios.Cc[syscall.VTIME] = 1
 
 	// 写入新的终端属性
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
+	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
 	if errno != 0 {
 		die("tcsetattr error")
 	}
 }
 
 func disableRawMode() {
-	fd := int(os.Stdin.Fd())
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&oldTermios)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&oldTermios)))
 	if errno != 0 {
 		die("tcsetattr error")
 	}
@@ -58,12 +56,19 @@ func disableRawMode() {
 func editorReadKey() byte{
 	for {
 		var buf = make([]byte, 1)
-		_,_,errno:=syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
+		_,_,errno:=syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
 		if errno != 0 {
 			die("read error")
 		}
 		return buf[0]
 	}
+}
+
+/*** output ***/
+func editorRefreshScreen() {
+	var clearScreen = []byte("\x1b[2J")
+	// 向标准输出写入4个字节实现清屏。第一个字节为\x1b，表示ESC，第二个字节为[，第三个字节为2，第四个字节为j
+	syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&clearScreen[0])),4)
 }
 
 /*** input ***/
@@ -107,5 +112,6 @@ func main() {
 
 	for {
 		editorProcessKeyPress()
+		editorRefreshScreen()
 	}
 }
