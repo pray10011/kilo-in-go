@@ -69,6 +69,8 @@ func editorRefreshScreen() {
 	var clearScreen = []byte("\x1b[2J")
 	// 向标准输出写入4个字节实现清屏。第一个字节为\x1b，表示ESC，第二个字节为[，第三个字节为2，第四个字节为j
 	syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&clearScreen[0])),4)
+	var cursorHome = []byte("\x1b[H")
+	syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&cursorHome[0])),3)
 }
 
 /*** input ***/
