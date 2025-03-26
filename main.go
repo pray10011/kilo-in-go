@@ -27,6 +27,8 @@ func enableRawMode() {
 	newTermios.Iflag &^= uint32(syscall.IXON | syscall.ICRNL | syscall.BRKINT | syscall.INPCK | syscall.ISTRIP)
 	newTermios.Oflag &^= uint32(syscall.OPOST)
 	newTermios.Cflag |= syscall.CS8
+	newTermios.Cc[syscall.VMIN]=0
+	newTermios.Cc[syscall.VTIME]=1
 
 	// 写入新的终端属性
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
@@ -49,9 +51,9 @@ func main() {
 	enableRawMode()
 	defer disableRawMode()
 	for {
-		var buf [1]byte
-		n, _, _ := syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
-		if n != 1 || buf[0] == 'q' {
+		var buf = make([]byte, 1)
+		syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
+		if buf[0]=='q'{
 			break
 		}
 
