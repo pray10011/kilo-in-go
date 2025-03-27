@@ -30,10 +30,12 @@ func CTRL_KEY(b byte) byte {
 func die(s string) {
 	var clearScreen = []byte("\x1b[2J")
 	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
-	var cursorHome = []byte("\x1b[H")
-	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+	var cursorLeftUp = []byte("\x1b[H")
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
 
 	fmt.Fprintf(os.Stderr, "%s\r\n", s)
+
+	disableRawMode()
 	os.Exit(1)
 }
 
@@ -41,7 +43,7 @@ func enableRawMode() {
 	// 获取当前终端属性
 	var newTermios syscall.Termios
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&oldTermios)))
-	if errno != 0 {
+	if errno < 0 {
 		die("tcgetattr error")
 	}
 
@@ -56,39 +58,44 @@ func enableRawMode() {
 
 	// 写入新的终端属性
 	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newTermios)))
-	if errno != 0 {
+	if errno < 0 {
 		die("tcsetattr error")
 	}
 }
 
 func disableRawMode() {
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&oldTermios)))
-	if errno != 0 {
+	if errno < 0 {
 		die("tcsetattr error")
 	}
 }
 
 func editorReadKey() byte {
+	var buf = make([]byte, 1)
 	for {
-		var buf = make([]byte, 1)
-		_, _, errno := syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
-		if errno != 0 {
+		r1, _, errno := syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
+		if r1 == 1 {
+			break
+		}
+		if r1 < 0 && errno != syscall.EAGAIN {
 			die("read error")
 		}
-		return buf[0]
 	}
+	return buf[0]
 }
 
-func getWindowSize() {
+func getWindowSize() int {
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdout.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&ws)))
 	if true || errno != 0 || ws.Row == 0 || ws.Col == 0 {
 		var cursorRightDown = []byte("\x1b[999C\x1b[999B")
 		_, _, errno = syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorRightDown[0])), 12)
 		if errno != 0 {
-			return
+			return -1
 		}
 		editorReadKey()
+		return -1
 	}
+	return 0
 }
 
 /*** output ***/
@@ -129,35 +136,15 @@ func editorProcessKeyPress() {
 
 /*** init ***/
 func initEditor() {
-	getWindowSize()
+	if getWindowSize() == -1 {
+		die("getWindowSize error")
+	}
 }
 
 func main() {
 	enableRawMode()
 	defer disableRawMode()
 	initEditor()
-
-	// for {
-	//  _, err := os.Stdin.Read(buf)
-	//  if err != nil {
-	//  	die("read error")
-	//  }
-	// 	var buf = make([]byte, 1)
-	// 	_,_,errno:=syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
-	// 	if errno != 0 {
-	// 		die("read error")
-	// 	}
-	// 	if buf[0] == CTRL_KEY('q') {
-	// 		break
-	// 	}
-
-	// 	// 判断是否为控制字符
-	// 	if unicode.IsControl(rune(buf[0])) {
-	// 		fmt.Printf("%d\r\n", buf[0])
-	// 	} else {
-	// 		fmt.Printf("%d (%q)\r\n", buf[0], buf[0])
-	// 	}
-	// }
 
 	for {
 		editorProcessKeyPress()
