@@ -17,6 +17,7 @@ type winsize struct {
 	X   uint16
 	Y   uint16
 }
+
 var ws winsize
 
 // 0x1f = 00011111，即清除5、6位，变为控制字符
@@ -79,9 +80,14 @@ func editorReadKey() byte {
 }
 
 func getWindowSize() {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&ws)))
-	if errno != 0 || ws.Row == 0 || ws.Col == 0 {
-		die("get windowsize error")
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdout.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&ws)))
+	if true || errno != 0 || ws.Row == 0 || ws.Col == 0 {
+		var cursorRightDown = []byte("\x1b[999C\x1b[999B")
+		_, _, errno = syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorRightDown[0])), 12)
+		if errno != 0 {
+			return
+		}
+		editorReadKey()
 	}
 }
 
@@ -97,11 +103,11 @@ func editorRefreshScreen() {
 	var clearScreen = []byte("\x1b[2J")
 	// 向标准输出写入4个字节实现清屏。第一个字节为\x1b，表示ESC，第二个字节为[，第三个字节为2，第四个字节为j
 	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
-	var cursorHome = []byte("\x1b[H")
-	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+	var cursorLeftUp = []byte("\x1b[H")
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
 
 	editorDrawRows()
-	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
 }
 
 /*** input ***/
@@ -111,8 +117,8 @@ func editorProcessKeyPress() {
 	case CTRL_KEY('q'):
 		var clearScreen = []byte("\x1b[2J")
 		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
-		var cursorHome = []byte("\x1b[H")
-		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+		var cursorLeftUp = []byte("\x1b[H")
+		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
 
 		disableRawMode()
 		// os.Exit(0)之后main函数的defer不执行，所以在这里显式调用
@@ -130,7 +136,6 @@ func main() {
 	enableRawMode()
 	defer disableRawMode()
 	initEditor()
-
 
 	// for {
 	//  _, err := os.Stdin.Read(buf)
