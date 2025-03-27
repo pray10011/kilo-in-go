@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"syscall"
+	"unicode"
 	"unsafe"
 
 	"os"
@@ -88,8 +89,26 @@ func editorReadKey() byte {
 }
 
 func getCursorPosition() int {
-	return 0
-
+	var cursorPosition = []byte("\x1b[6n")
+	_, _, errno := syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorPosition[0])), 4)
+	if errno != 0 {
+		return -1
+	}
+	fmt.Printf("\r\n")
+	var buf = make([]byte, 1)
+	for {
+		r1, _, _ := syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
+		if r1 != 1 {
+			break
+		}
+		if unicode.IsControl(rune(buf[0])) {
+			fmt.Printf("%d\r\n", buf[0])
+		} else {
+			fmt.Printf("%d (%q)\r\n", buf[0], buf[0])
+		}
+	}
+	editorReadKey()
+	return -1
 }
 
 func getWindowSize() int {
@@ -100,8 +119,7 @@ func getWindowSize() int {
 		if errno != 0 {
 			return -1
 		}
-		editorReadKey()
-		return -1
+		return getCursorPosition()
 	}
 	return 0
 }
