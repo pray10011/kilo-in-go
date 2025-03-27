@@ -9,7 +9,12 @@ import (
 )
 
 /*** define ***/
-var oldTermios syscall.Termios
+type editorConfig struct {
+	oldTermios syscall.Termios
+	ws         winsize
+}
+
+var E editorConfig
 
 type winsize struct {
 	Row uint16
@@ -17,8 +22,6 @@ type winsize struct {
 	X   uint16
 	Y   uint16
 }
-
-var ws winsize
 
 // 0x1f = 00011111，即清除5、6位，变为控制字符
 func CTRL_KEY(b byte) byte {
@@ -42,12 +45,12 @@ func die(s string) {
 func enableRawMode() {
 	// 获取当前终端属性
 	var newTermios syscall.Termios
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&oldTermios)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&E.oldTermios)))
 	if errno < 0 {
 		die("tcgetattr error")
 	}
 
-	newTermios = oldTermios
+	newTermios = E.oldTermios
 
 	newTermios.Lflag &^= uint32(syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG)
 	newTermios.Iflag &^= uint32(syscall.IXON | syscall.ICRNL | syscall.BRKINT | syscall.INPCK | syscall.ISTRIP)
@@ -64,7 +67,7 @@ func enableRawMode() {
 }
 
 func disableRawMode() {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&oldTermios)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&E.oldTermios)))
 	if errno < 0 {
 		die("tcsetattr error")
 	}
@@ -84,9 +87,14 @@ func editorReadKey() byte {
 	return buf[0]
 }
 
+func getCursorPosition() int {
+	return 0
+
+}
+
 func getWindowSize() int {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdout.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&ws)))
-	if true || errno != 0 || ws.Row == 0 || ws.Col == 0 {
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdout.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&E.ws)))
+	if true || errno != 0 || E.ws.Row == 0 || E.ws.Col == 0 {
 		var cursorRightDown = []byte("\x1b[999C\x1b[999B")
 		_, _, errno = syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorRightDown[0])), 12)
 		if errno != 0 {
@@ -101,7 +109,7 @@ func getWindowSize() int {
 /*** output ***/
 func editorDrawRows() {
 	var tlides = []byte("~\r\n")
-	for i := 0; i < int(ws.Row); i++ {
+	for i := 0; i < int(E.ws.Row); i++ {
 		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlides[0])), 3)
 	}
 }
