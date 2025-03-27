@@ -10,6 +10,7 @@ import (
 
 /*** define ***/
 var oldTermios syscall.Termios
+
 // 0x1f = 00011111，即清除5、6位，变为控制字符
 func CTRL_KEY(b byte) byte {
 	return b & 0x1f
@@ -18,7 +19,12 @@ func CTRL_KEY(b byte) byte {
 /*** terminal ***/
 
 func die(s string) {
-	fmt.Fprintf(os.Stderr, "%s\r\n",s)
+	var clearScreen = []byte("\x1b[2J")
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
+	var cursorHome = []byte("\x1b[H")
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+
+	fmt.Fprintf(os.Stderr, "%s\r\n", s)
 	os.Exit(1)
 }
 
@@ -53,10 +59,10 @@ func disableRawMode() {
 	}
 }
 
-func editorReadKey() byte{
+func editorReadKey() byte {
 	for {
 		var buf = make([]byte, 1)
-		_,_,errno:=syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
+		_, _, errno := syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
 		if errno != 0 {
 			die("read error")
 		}
@@ -65,23 +71,38 @@ func editorReadKey() byte{
 }
 
 /*** output ***/
+func editorDrawRows() {
+	var tlides = []byte("~\r\n")
+	for i:=0;i<24;i++ {
+		syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&tlides[0])),3)
+	}
+}
+
 func editorRefreshScreen() {
 	var clearScreen = []byte("\x1b[2J")
 	// 向标准输出写入4个字节实现清屏。第一个字节为\x1b，表示ESC，第二个字节为[，第三个字节为2，第四个字节为j
-	syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&clearScreen[0])),4)
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
 	var cursorHome = []byte("\x1b[H")
-	syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&cursorHome[0])),3)
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+
+	editorDrawRows()
+	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
 }
 
 /*** input ***/
 func editorProcessKeyPress() {
 	var c = editorReadKey()
-	switch(c) {
-		case CTRL_KEY('q'):
-			disableRawMode()
-			// os.Exit(0)之后main函数的defer不执行，所以在这里显式调用
-			os.Exit(0)
-			break
+	switch c {
+	case CTRL_KEY('q'):
+		var clearScreen = []byte("\x1b[2J")
+		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
+		var cursorHome = []byte("\x1b[H")
+		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorHome[0])), 3)
+
+		disableRawMode()
+		// os.Exit(0)之后main函数的defer不执行，所以在这里显式调用
+		os.Exit(0)
+		break
 	}
 }
 
@@ -89,12 +110,12 @@ func editorProcessKeyPress() {
 func main() {
 	enableRawMode()
 	defer disableRawMode()
-	
+
 	// for {
-	// 	// _, err := os.Stdin.Read(buf)
-	// 	// if err != nil {
-	// 	// 	die("read error")
-	// 	// }
+	//  _, err := os.Stdin.Read(buf)
+	//  if err != nil {
+	//  	die("read error")
+	//  }
 	// 	var buf = make([]byte, 1)
 	// 	_,_,errno:=syscall.Syscall(syscall.SYS_READ, uintptr(os.Stdin.Fd()), uintptr(unsafe.Pointer(&buf[0])), 1)
 	// 	if errno != 0 {
