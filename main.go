@@ -11,6 +11,14 @@ import (
 /*** define ***/
 var oldTermios syscall.Termios
 
+type winsize struct {
+	Row uint16
+	Col uint16
+	X   uint16
+	Y   uint16
+}
+var ws winsize
+
 // 0x1f = 00011111，即清除5、6位，变为控制字符
 func CTRL_KEY(b byte) byte {
 	return b & 0x1f
@@ -70,11 +78,18 @@ func editorReadKey() byte {
 	}
 }
 
+func getWindowSize() {
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdin.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&ws)))
+	if errno != 0 || ws.Row == 0 || ws.Col == 0 {
+		die("get windowsize error")
+	}
+}
+
 /*** output ***/
 func editorDrawRows() {
 	var tlides = []byte("~\r\n")
-	for i:=0;i<24;i++ {
-		syscall.Syscall(syscall.SYS_WRITE,os.Stdout.Fd(),uintptr(unsafe.Pointer(&tlides[0])),3)
+	for i := 0; i < 24; i++ {
+		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlides[0])), 3)
 	}
 }
 
@@ -107,9 +122,15 @@ func editorProcessKeyPress() {
 }
 
 /*** init ***/
+func initEditor() {
+	getWindowSize()
+}
+
 func main() {
 	enableRawMode()
 	defer disableRawMode()
+	initEditor()
+
 
 	// for {
 	//  _, err := os.Stdin.Read(buf)
