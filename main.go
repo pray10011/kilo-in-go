@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"syscall"
-	"unicode"
 	"unsafe"
 
 	"os"
@@ -95,25 +94,31 @@ func getCursorPosition() int {
 		return -1
 	}
 	fmt.Printf("\r\n")
-	var buf = make([]byte, 1)
+	var buf = make([]byte, 32)
+	var i int
 	for {
-		r1, _, _ := syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[0])), 1)
+		r1, _, _ := syscall.Syscall(syscall.SYS_READ, os.Stdin.Fd(), uintptr(unsafe.Pointer(&buf[i])), 1)
 		if r1 != 1 {
 			break
 		}
-		if unicode.IsControl(rune(buf[0])) {
-			fmt.Printf("%d\r\n", buf[0])
-		} else {
-			fmt.Printf("%d (%q)\r\n", buf[0], buf[0])
+		if buf[i] == 'R' {
+			break
 		}
+		i++
 	}
-	editorReadKey()
-	return -1
+	if buf[0] != '\x1b' || buf[1] != '[' {
+		return -1
+	}
+	n, err := fmt.Sscanf(string(buf[2:i]), "%d;%d", &E.ws.Row, &E.ws.Col)
+	if n != 2 || err != nil {
+		return -1
+	}
+	return 0
 }
 
 func getWindowSize() int {
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, os.Stdout.Fd(), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&E.ws)))
-	if true || errno != 0 || E.ws.Row == 0 || E.ws.Col == 0 {
+	if errno != 0 || E.ws.Row == 0 || E.ws.Col == 0 {
 		var cursorRightDown = []byte("\x1b[999C\x1b[999B")
 		_, _, errno = syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorRightDown[0])), 12)
 		if errno != 0 {
@@ -173,7 +178,7 @@ func main() {
 	initEditor()
 
 	for {
-		editorProcessKeyPress()
 		editorRefreshScreen()
+		editorProcessKeyPress()
 	}
 }
