@@ -133,9 +133,11 @@ func getWindowSize() int {
 /*** output ***/
 func editorDrawRows(buf *bytes.Buffer) {
 	var tlide = []byte("~")
+	var clearLine = []byte("\x1b[K")
 	var newline = []byte("\r\n")
 	for i := 0; i < int(E.ws.Row); i++ {
 		buf.Write(tlide)
+		buf.Write(clearLine)
 		// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlide[0])), 1)
 		if i < int(E.ws.Row)-1 {
 			buf.Write(newline)
@@ -151,8 +153,8 @@ func editorRefreshScreen() {
 	var hideCursor = []byte("\x1b[?25l")
 	buf.Write(hideCursor)
 	// 清屏
-	var clearScreen = []byte("\x1b[2J")
-	buf.Write(clearScreen)
+	// var clearScreen = []byte("\x1b[2J")
+	// buf.Write(clearScreen)
 	// 光标移动到左上角
 	var cursorLeftUp = []byte("\x1b[H")
 	buf.Write(cursorLeftUp)
