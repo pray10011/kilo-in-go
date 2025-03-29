@@ -131,9 +131,13 @@ func getWindowSize() int {
 
 /*** output ***/
 func editorDrawRows() {
-	var tlides = []byte("~\r\n")
+	var tlide = []byte("~")
+	var newline = []byte("\r\n")
 	for i := 0; i < int(E.ws.Row); i++ {
-		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlides[0])), 3)
+		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlide[0])), 1)
+		if i < int(E.ws.Row)-1 {
+			syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&newline[0])), 2)
+		}
 	}
 }
 
