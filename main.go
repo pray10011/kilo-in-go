@@ -138,7 +138,7 @@ func editorDrawRows(buf *bytes.Buffer) {
 	var clearLine = []byte("\x1b[K")
 	var newline = []byte("\r\n")
 	for i := 0; i < int(E.ws.Row); i++ {
-		if i==int(E.ws.Row)/3 {
+		if i == int(E.ws.Row)/3 {
 			var welcome = fmt.Sprintf("Kilo editor -- version %s", KILO_VERSON)
 			var welcomeLen = len(welcome)
 			if welcomeLen > int(E.ws.Col) {
@@ -153,7 +153,7 @@ func editorDrawRows(buf *bytes.Buffer) {
 				buf.Write([]byte(" "))
 			}
 			buf.Write([]byte(welcome))
-		}else{
+		} else {
 			buf.Write(tlide)
 		}
 		buf.Write(clearLine)
@@ -168,19 +168,19 @@ func editorDrawRows(buf *bytes.Buffer) {
 func editorRefreshScreen() {
 	var buf = bytes.NewBuffer([]byte{})
 	defer buf.Reset()
+
 	// 隐藏光标
 	var hideCursor = []byte("\x1b[?25l")
 	buf.Write(hideCursor)
-	// 清屏
-	// var clearScreen = []byte("\x1b[2J")
-	// buf.Write(clearScreen)
 	// 光标移动到左上角
 	var cursorLeftUp = []byte("\x1b[H")
 	buf.Write(cursorLeftUp)
 
 	editorDrawRows(buf)
 
-	buf.Write(cursorLeftUp)
+	var cursor = fmt.Sprintf("\x1b[%d;%dH", E.ws.Y+1, E.ws.X+1)
+	buf.Write([]byte(cursor))
+
 	// 显示光标
 	var showCursor = []byte("\x1b[?25h")
 	buf.Write(showCursor)
@@ -210,6 +210,26 @@ func editorProcessKeyPress() {
 		disableRawMode()
 		// os.Exit(0)之后main函数的defer不执行，所以在这里显式调用
 		os.Exit(0)
+		break
+	case 'a','d','w','s':
+		editorMoveCursor(c)
+		break
+	}
+}
+
+func editorMoveCursor(key byte) {
+	switch key {
+	case 'a':
+		E.ws.X--
+		break
+	case 'd':
+		E.ws.X++
+		break
+	case 'w':
+		E.ws.Y--
+		break
+	case 's':
+		E.ws.Y++
 		break
 	}
 }
