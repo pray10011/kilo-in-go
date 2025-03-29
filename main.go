@@ -24,6 +24,8 @@ type winsize struct {
 	Y   uint16
 }
 
+const KILO_VERSON = "0.0.1"
+
 // 0x1f = 00011111，即清除5、6位，变为控制字符
 func CTRL_KEY(b byte) byte {
 	return b & 0x1f
@@ -136,7 +138,24 @@ func editorDrawRows(buf *bytes.Buffer) {
 	var clearLine = []byte("\x1b[K")
 	var newline = []byte("\r\n")
 	for i := 0; i < int(E.ws.Row); i++ {
-		buf.Write(tlide)
+		if i==int(E.ws.Row)/3 {
+			var welcome = fmt.Sprintf("Kilo editor -- version %s", KILO_VERSON)
+			var welcomeLen = len(welcome)
+			if welcomeLen > int(E.ws.Col) {
+				welcome = welcome[:E.ws.Col]
+			}
+			var padding = int(E.ws.Col)/2 - int(welcomeLen)/2
+			if padding > 0 {
+				buf.Write([]byte("~"))
+				padding--
+			}
+			for i := 0; i < padding; i++ {
+				buf.Write([]byte(" "))
+			}
+			buf.Write([]byte(welcome))
+		}else{
+			buf.Write(tlide)
+		}
 		buf.Write(clearLine)
 		// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlide[0])), 1)
 		if i < int(E.ws.Row)-1 {
