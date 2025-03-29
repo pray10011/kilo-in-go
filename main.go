@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"syscall"
 	"unsafe"
@@ -130,26 +131,49 @@ func getWindowSize() int {
 }
 
 /*** output ***/
-func editorDrawRows() {
+func editorDrawRows(buf *bytes.Buffer) {
 	var tlide = []byte("~")
 	var newline = []byte("\r\n")
 	for i := 0; i < int(E.ws.Row); i++ {
-		syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlide[0])), 1)
+		buf.Write(tlide)
+		// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&tlide[0])), 1)
 		if i < int(E.ws.Row)-1 {
-			syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&newline[0])), 2)
+			buf.Write(newline)
+			// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&newline[0])), 2)
 		}
 	}
 }
 
 func editorRefreshScreen() {
+	var buf = bytes.NewBuffer([]byte{})
+	defer buf.Reset()
+	// 隐藏光标
+	var hideCursor = []byte("\x1b[?25l")
+	buf.Write(hideCursor)
+	// 清屏
 	var clearScreen = []byte("\x1b[2J")
-	// 向标准输出写入4个字节实现清屏。第一个字节为\x1b，表示ESC，第二个字节为[，第三个字节为2，第四个字节为j
-	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
+	buf.Write(clearScreen)
+	// 光标移动到左上角
 	var cursorLeftUp = []byte("\x1b[H")
-	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
+	buf.Write(cursorLeftUp)
 
-	editorDrawRows()
-	syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
+	editorDrawRows(buf)
+
+	buf.Write(cursorLeftUp)
+	// 显示光标
+	var showCursor = []byte("\x1b[?25h")
+	buf.Write(showCursor)
+
+	buf.WriteTo(os.Stdout)
+
+	// var clearScreen = []byte("\x1b[2J")
+	// // 向标准输出写入4个字节实现清屏。第一个字节为\x1b，表示ESC，第二个字节为[，第三个字节为2，第四个字节为j
+	// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&clearScreen[0])), 4)
+	// var cursorLeftUp = []byte("\x1b[H")
+	// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
+
+	// editorDrawRows()
+	// syscall.Syscall(syscall.SYS_WRITE, os.Stdout.Fd(), uintptr(unsafe.Pointer(&cursorLeftUp[0])), 3)
 }
 
 /*** input ***/
